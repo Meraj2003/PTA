@@ -538,9 +538,34 @@ var b=$('#wl');if(b)b.innerHTML=watchRows();undoBuf={k:'watch',d:bk};Snd.play('d
 function sizeFrom(sym,tf){var g=rawSig(sym,tf);if(!g){toast(t('noTf'),'wa');return}var sg=suggest(g.conf,g.atrPct);
 S.ui.calc={sym:sym,side:g.dir==='SHORT'?'short':'long',mode:S.set.risk.mode,lev:S.set.risk.lev,risk:sg.val,entry:+g.entry.toFixed(8),stop:+g.stop.toFixed(8),t1:+g.targets[0].toFixed(8),t2:+g.targets[1].toFixed(8),t3:+g.targets[2].toFixed(8),cap:S.book.total,fee:S.set.risk.fee};
 closeDW();S.ui.desk='sizer';go('desk')}
-function explain(){var box=$('#aiBox'),d=S.ui.coin;if(!box||!d)return;var p=pulse(),g=d.sig;
-var txt=d.sym+' scores '+g.score+'/100 on the '+t(d.tf)+' screen with a '+g.dir+' bias, computed on the worker from closed candles only. The stop sits '+g.riskPct.toFixed(2)+'% away, sized from realised ATR ('+g.atrPct.toFixed(2)+'%). Supertrend is '+(g.st===1?'bullish':'bearish')+' and price is '+(g.close>g.vwap?'above':'below')+' VWAP(20). The tested rule reached +1.5R before −1R in '+d.bt.win+'% of '+d.bt.n+' occurrences — '+(d.bt.n<12?'a thin sample, so treat it as weak evidence':'a usable but in-sample estimate')+'. Market regime is "'+(p?p.regime:'unknown')+'" with '+d.linked+' linked headlines (net '+(d.net>0?'+':'')+d.net+'). The thesis is invalidated at '+fp(g.stop)+'. Size it at '+d.sg.val+'% of book and let the ladder do the selling.';
-box.innerHTML='<div class="notice in">'+I('spark')+'<div><b>'+t('explain')+'</b><br>'+esc(txt)+'</div></div>';Snd.play('ok')}
+function explain(){
+ var box=$('#aiBox'),d=S.ui.coin;if(!box||!d)return;
+ box.innerHTML='<div class="skel" style="height:96px"></div>';
+ api('/analyze?symbol='+encodeURIComponent(d.sym)+'&tf='+d.tf,45000).then(function(r){
+  if(!r||!r.ok||!r.analysis)throw new Error((r&&(r.error||r.reason))||'no analysis');
+  var a=r.analysis;
+  var sec=function(ti,arr,col){if(!arr||!arr.length)return'';
+   return '<div style="margin-top:10px"><div class="ey" style="color:'+col+'">'+ti+'</div>'+
+    arr.map(function(x){return '<div class="hint" style="margin:3px 0;color:var(--ink2)">• '+esc(x)+'</div>'}).join('')+'</div>'};
+  box.innerHTML='<div class="card p" style="background:var(--surf)">'+
+   '<div class="row bt wrap" style="gap:6px;margin-bottom:9px"><div class="ey">'+t('explain')+'</div>'+
+   '<span class="chip ac">'+I('spark')+' '+esc(r.model||'gemini')+(r.cached?' · cached':'')+'</span></div>'+
+   '<p style="margin:0;font-size:12.5px;line-height:1.7">'+esc(a.thesis||'')+'</p>'+
+   sec('Evidence',a.evidence,'var(--acc)')+
+   sec('Conflicts',a.conflicts,'var(--amber)')+
+   (a.invalidation?'<div style="margin-top:10px"><div class="ey" style="color:var(--short)">Invalidation</div><div class="hint" style="color:var(--ink2)">'+esc(a.invalidation)+'</div></div>':'')+
+   sec('Risks',a.risks,'var(--short)')+
+   (a.news_read?'<div style="margin-top:10px"><div class="ey">'+t('news')+'</div><div class="hint" style="color:var(--ink2)">'+esc(a.news_read)+'</div></div>':'')+
+   (a.confidence_note?'<div class="hint" style="margin-top:10px;color:var(--mut)">'+esc(a.confidence_note)+'</div>':'')+
+   '<div class="hint" style="margin-top:9px">Attempts: '+(r.attempts||1)+' · '+t('disclaimer').slice(0,60)+'…</div></div>';
+  Snd.play('ok');
+ }).catch(function(e){
+  var p=pulse(),g=d.sig;
+  var txt=d.sym+' scores '+g.score+'/100 on the '+t(d.tf)+' screen with a '+g.dir+' bias, computed on closed candles. Stop sits '+g.riskPct.toFixed(2)+'% away from realised ATR ('+g.atrPct.toFixed(2)+'%). Supertrend '+(g.st===1?'bullish':'bearish')+', price '+(g.close>g.vwap?'above':'below')+' VWAP(20). Rule reached +1.5R before −1R in '+d.bt.win+'% of '+d.bt.n+' cases'+(d.bt.n<12?' — thin sample, weak evidence':'')+'. Regime: '+(p?p.regime:'unknown')+'. Invalidation at '+fp(g.stop)+'.';
+  box.innerHTML='<div class="notice wa">'+I('warn')+'<div><b>'+t('explain')+' · '+t('heuristic')+'</b><br>'+esc(txt)+
+   '<div class="hint" style="margin-top:6px">Agent unavailable: '+esc(e.message||e)+'</div></div></div>';
+ });
+}
 function digest(){var box=$('#digest');if(!box)return;var p=pulse(),ns=NEWS.slice(0,8);
 if(!p||!ns.length){box.innerHTML='<div class="notice wa">'+I('warn')+'<div>'+t('noNews')+'</div></div>';return}
 var bull=ns.filter(function(n){return n.dir==='bullish'}).length,bear=ns.filter(function(n){return n.dir==='bearish'}).length,lead=ns.slice().sort(function(a,b){return b.mag-a.mag})[0];
